@@ -1,0 +1,174 @@
+import { Button, VerticalBox, HorizontalBox, TextEdit, LineEdit } from "std-widgets.slint";
+
+// TabComponent
+component TabComponent {
+    in-out property <string> tab-name;
+    in-out property <bool> editing: false;
+    in property <int> idx;
+    in property <int> current-tab;
+    in property <length> tab-width;
+    callback select-tab(int);
+    callback name-changed(string);
+
+    Rectangle {
+        height: 25px;
+        width: tab-width;
+        background: idx == root.current-tab ? #d0d0d0 : #f0f0f0;
+        if !editing : btn := Button {
+            text: tab-name;
+            height: 25px;
+            width: tab-width;
+            clicked => { 
+                root.select-tab(root.idx);
+            }
+        }
+        if editing : LineEdit {
+            text: tab-name;
+            height: 25px;
+            width: tab-width;
+            accepted => {
+                tab-name = self.text;
+                editing = false;
+                name-changed(self.text);
+            }
+        }
+    }
+}
+
+// FontSizeWindow
+component FontSizeWindow {
+    in-out property <int> font-size: 20;
+    in-out property <bool> is-visible: false;
+    callback apply-font-size(float);
+    callback show();
+
+    Rectangle {
+        width: 80px;
+        height: 50px;
+        visible: root.is-visible;
+        VerticalBox {
+            LineEdit {
+                text: root.font-size;
+                accepted => {
+                    root.apply-font-size(self.text.to-float());
+                    root.is-visible = false;
+                }
+            }
+        }
+    }
+}
+
+export component TabDemo inherits Window {
+    width: 800px;
+    height: 600px;
+
+    property <length> tool-tab-width: 780px;
+
+    in-out property <[string]> tab-titles: ["Tab 1"];
+    in-out property <[string]> tab-contents: [""];
+    in-out property <int> current-tab: 0;
+    in-out property <int> font-size: 20;
+    in-out property <string> current-content;
+    in-out property <bool> is-editing: true;
+    in-out property <bool> is-bold: false;
+
+    VerticalBox {
+        padding: 5px;
+        height: 100%;
+
+        // 툴바
+        HorizontalBox {
+            height: 40px;
+            width: root.tool-tab-width;
+            spacing: 10px;
+
+            // 왼쪽 버튼 그룹
+            HorizontalBox {
+                spacing: 10px;
+                Button { text: "Font Size"; width: 70px; height: 30px; clicked => { font-window.show(); } }
+                Button { text: "Bold"; width: 70px; height: 30px; clicked => { root.apply-bold(); } }
+                Button { text: "Underline"; width: 80px; height: 30px; clicked => { root.apply-underline(); } }
+            }
+
+            // Spacer로 오른쪽 버튼 그룹 밀기
+            Rectangle { horizontal-stretch: 1; }
+
+            // 오른쪽 버튼 그룹
+            HorizontalBox {
+                spacing: 10px;
+                Button { text: "Add Tab"; width: 70px; height: 30px; clicked => { root.add-new-tab(); } }
+                Button { text: "Rename Tab"; width: 100px; height: 30px; clicked => { 
+                    root.rename-tab(root.current-tab, root.tab-titles[root.current-tab]);
+                } }
+                Button { text: "Close Tab"; width: 70px; height: 30px; clicked => { root.close-tab(); } }
+                Button { text: "Save"; width: 60px; height: 30px; clicked => { root.is-editing = false; } }
+                Button { text: "Copy All"; width: 60px; height: 30px; }
+            }
+        }
+
+        // 탭바
+        Rectangle {
+            width: root.tool-tab-width;
+            height: 55px;
+            clip: true;
+
+            tab-bar := HorizontalBox {
+                width: parent.width;
+                height: parent.height;
+                spacing: 20px;
+
+                in property <length> tab-width: root.tool-tab-width / root.tab-titles.length;
+
+                for title[idx] in root.tab-titles : TabComponent {
+                    tab-name: title;
+                    idx: idx;
+                    current-tab: root.current-tab;
+                    tab-width: tab-bar.tab-width;
+                    select-tab(tab-idx) => {
+                        root.current-tab = tab-idx;
+                        root.current-tab-changed(tab-idx);
+                    }
+                    name-changed(new-name) => {
+                        root.rename-tab(idx, new-name);
+                    }
+                }
+            }
+        }
+
+        editor-area := TextEdit {
+            width: parent.width;
+            height: parent.height - 120px;
+            text <=> root.current-content;
+            font-size: root.font-size * 1px;
+            visible: root.is-editing;
+        }
+
+        styled-text-area := Text {
+            width: parent.width;
+            height: parent.height - 120px;
+            text: root.current-content;
+            font-size: root.font-size * 1px;
+            font-weight: root.is-bold ? 700 : 400;
+            visible: !root.is-editing;
+        }
+    }
+
+    font-window := FontSizeWindow {
+        font-size: root.font-size;
+        apply-font-size(new-size) => {
+            root.font-size = new-size;
+        }
+        show() => {
+            self.is-visible = true;
+        }
+    }
+
+    callback add-new-tab();
+    callback current-tab-changed(int);
+    callback apply-font-size(float);
+    callback rename-tab(int, string);
+    callback close-tab();
+    callback apply-bold();
+    callback apply-underline();
+    callback update-tab-content(string);
+}
